@@ -37,7 +37,7 @@ cells.append(cell(
     "import os, sys, glob\n\n"
     "# Uncomment ONE of these:\n"
     "# Option A: clone from GitHub\n"
-    "# !git clone https://github.com/NJVinay/scaler-meta-hackathon.git\n\n"
+    "!git clone https://github.com/NJVinay/openenv_ma_analyzer.git\n\n"
     "# Option B: upload zip via Colab file panel, then:\n"
     "# import zipfile; zipfile.ZipFile('output.zip').extractall('.')\n\n"
     "# Auto-detect project root: find the directory that contains server/\n"
