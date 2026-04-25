@@ -56,7 +56,15 @@ All graders are **deterministic** — no LLM calls. Rewards clamped to `[0.0, 1.
 ![Reward Curve](reward_curve.png)
 ![Loss Curve](loss_curve.png)
 
-The reward curve shows steady improvement as the agent learns to identify clause types accurately, with plateau regions corresponding to curriculum stage transitions. The loss curve confirms stable policy optimization without divergence.
+**Figure 1 (Heavy RL Reward):** `reward_curve.png` tracks mean reward versus training step during Phase 3 GRPO and shows policy improvement under the OpenEnv reward function.
+
+**Figure 2 (Heavy RL Loss):** `loss_curve.png` tracks optimization loss versus training step and is used to verify stable training behavior.
+
+**Current committed curves are 3B test-run examples:** the present `reward_curve.png` and `loss_curve.png` are included as baseline validation artifacts from a lightweight 3B configuration run. They are kept intentionally to demonstrate end-to-end pipeline execution before final 7B/A100 heavy-run replacement.
+
+**Optional supporting artifacts (recommended):**
+- `reward_curve_mini.png` (Phase 2 mini RL sanity run)
+- `sft_loss_curve.png` (Phase 1 SFT warm-up)
 
 ## 💡 Why It Matters
 
@@ -73,6 +81,16 @@ The 3-tier curriculum mirrors the actual professional progression in M&A advisor
 - **Training Notebook**: [`training/grpo_training.ipynb`](training/grpo_training.ipynb)
 - **Reward Curve**: [`reward_curve.png`](reward_curve.png)
 - **Loss Curve**: [`loss_curve.png`](loss_curve.png)
+- **Blog Post**: [`blogpost.md`](blogpost.md)
+
+## ✅ Submission Readiness Checks
+
+- [ ] Space is **public**, reachable in logged-out incognito mode
+- [ ] `GET /health` returns `{"status": "ok"}`
+- [ ] `openenv.yaml` exists at repo root
+- [ ] `reward_curve.png` and `loss_curve.png` are committed at repo root
+- [ ] README answers Problem / Environment / Results / Why it matters
+- [ ] `blogpost.md` is present and linked
 
 ## 🚀 Quick Start
 

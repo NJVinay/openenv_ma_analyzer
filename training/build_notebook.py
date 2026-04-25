@@ -1,4 +1,4 @@
-"""build_notebook.py — generates grpo_training.ipynb with T4-safe configs."""
+"""build_notebook.py — generates grpo_training.ipynb for long-horizon GRPO runs."""
 import json, os
 
 def cell(source, cell_type="code"):
@@ -12,12 +12,12 @@ cells = []
 # ── Markdown header ──
 cells.append(cell(
     "# M&A Due Diligence RL Training — 3-Phase Pipeline\n\n"
-    "| Phase | Purpose | ~Time on T4 |\n"
+    "| Phase | Purpose | Typical Runtime |\n"
     "|-------|---------|-------------|\n"
     "| **1. SFT Warm-up** | Teach JSON output format | ~5 min |\n"
     "| **2. Lightweight GRPO** | Test full RL loop (10 steps) | ~10 min |\n"
     "| **3. Full GRPO** | Actual training → curves | ~45-90 min |\n\n"
-    "> GPU: T4 (15 GB VRAM). Peak usage ~10 GB. `load_in_4bit=True` keeps it safe.",
+    "> Recommended GPU: A100 for Phase 3 heavy runs. `load_in_4bit=True` can still be used for memory safety.",
     "markdown"
 ))
 
@@ -97,7 +97,7 @@ cells.append(cell(
 
 # ── Cell 4: Load model ──
 cells.append(cell(
-    "# Cell 4: Load Qwen2.5-3B with Unsloth + LoRA\n"
+    "# Cell 4: Load Qwen2.5-7B with Unsloth + LoRA\n"
     "from unsloth import FastLanguageModel\n\n"
     "model, tokenizer = FastLanguageModel.from_pretrained(\n"
     "    model_name='unsloth/Qwen2.5-7B-Instruct',  # Upgraded to 7B for A100 Heavy Run\n"
@@ -122,7 +122,7 @@ cells.append(cell("---\n## Phase 1: SFT Warm-up\nTeaches JSON format on 20 curat
 
 # ── Cell 5: SFT ──
 cells.append(cell(
-    "# Cell 5: SFT warm-up (T4-safe: batch=1, SFTConfig fallback)\n"
+    "# Cell 5: SFT warm-up (portable defaults, SFTConfig fallback)\n"
     "# SFTConfig requires trl>=0.8.0 — use TrainingArguments as safe fallback\n"
     "try:\n"
     "    from trl import SFTTrainer, SFTConfig as _SFTArgs\n"
@@ -155,7 +155,7 @@ cells.append(cell(
     "sft_args = _SFTArgs(\n"
     "    output_dir='./sft-checkpoint',\n"
     "    num_train_epochs=8,  # Increased from 3 to 8 for better formatting compliance\n"
-    "    per_device_train_batch_size=1,  # T4 safe\n"
+    "    per_device_train_batch_size=1,  # Conservative SFT batch for portability\n"
     "    gradient_accumulation_steps=4,\n"
     "    learning_rate=2e-4,\n"
     "    logging_steps=5,\n"
@@ -168,7 +168,7 @@ cells.append(cell(
     "    train_dataset=sft_dataset, args=sft_args,\n"
     "    **_sft_trainer_extra,\n"
     ")\n"
-    "print(f'SFT: {len(sft_dataset)} examples x3 epochs')\n"
+    "print(f'SFT: {len(sft_dataset)} examples x8 epochs')\n"
     "sft_trainer.train()\n"
     "sft_log = sft_trainer.state.log_history\n"
     "print('Phase 1 complete!')"
@@ -333,11 +333,11 @@ cells.append(cell(
     "# A100 Optimized GRPO Config\n"
     "full_cfg = GRPOConfig(\n"
     "    output_dir='./ma-rl-checkpoints',\n"
-    "    num_train_epochs=2,  # 2 epochs for deeper learning\n"
+    "    num_train_epochs=2,  # Two epochs for deeper policy refinement\n"
     "    learning_rate=5e-6,\n"
     "    per_device_train_batch_size=2,  # Increased for A100\n"
     "    gradient_accumulation_steps=4,\n"
-    "    num_generations=8,  # Better exploration/KL balance\n"
+    "    num_generations=8,  # Improved exploration/KL tradeoff\n"
     "    max_completion_length=2048,\n"
     "    logging_steps=5,\n"
     "    save_steps=25,\n"
@@ -372,12 +372,56 @@ cells.append(cell(
     "    ['reward', 'rewards/mean', 'reward_mean', 'train/reward', 'rewards'])\n"
     "loss_steps, loss_vals = extract(log,\n"
     "    ['loss', 'train/loss', 'train_loss'])\n"
-    "print(f'Rewards: {len(reward_steps)} pts | Loss: {len(loss_steps)} pts')"
+    "mini_log = test_trainer.state.log_history\n"
+    "mini_reward_steps, mini_reward_vals = extract(mini_log,\n"
+    "    ['reward', 'rewards/mean', 'reward_mean', 'train/reward', 'rewards'])\n"
+    "sft_steps = [x.get('step', i) for i, x in enumerate(sft_log) if 'loss' in x]\n"
+    "sft_loss_vals = [x['loss'] for x in sft_log if 'loss' in x]\n"
+    "print(f'Heavy RL rewards: {len(reward_steps)} pts | Heavy RL loss: {len(loss_steps)} pts')\n"
+    "print(f'Mini RL rewards: {len(mini_reward_steps)} pts | SFT loss: {len(sft_steps)} pts')"
 ))
 
-# ── Cell 11: Reward curve ──
+# ── Cell 11: Mini RL reward curve ──
 cells.append(cell(
-    "# Cell 11: reward_curve.png\n"
+    "# Cell 11: reward_curve_mini.png (Phase 2 mini RL)\n"
+    "import matplotlib.pyplot as plt, numpy as np\n\n"
+    "fig_mini, ax_mini = plt.subplots(figsize=(10, 6))\n"
+    "if mini_reward_steps:\n"
+    "    ax_mini.plot(mini_reward_steps, mini_reward_vals, '#0891b2', lw=2, label='Mini RL reward')\n"
+    "    if len(mini_reward_steps) > 3:\n"
+    "        z = np.polyfit(mini_reward_steps, mini_reward_vals, 1)\n"
+    "        ax_mini.plot(mini_reward_steps, np.poly1d(z)(mini_reward_steps),\n"
+    "                     '--', color='#67e8f9', alpha=0.7, label='trend')\n"
+    "    ax_mini.legend()\n"
+    "ax_mini.set_xlabel('Training Step')\n"
+    "ax_mini.set_ylabel('Mean Reward')\n"
+    "ax_mini.set_title('M&A RL - Reward Curve (Mini RL, Qwen2.5-7B)')\n"
+    "ax_mini.grid(True, alpha=0.3)\n"
+    "fig_mini.savefig('reward_curve_mini.png', dpi=150, bbox_inches='tight')\n"
+    "plt.show(); print('Saved reward_curve_mini.png')"
+))
+
+# ── Cell 12: SFT loss curve ──
+cells.append(cell(
+    "# Cell 12: sft_loss_curve.png (Phase 1 SFT)\n"
+    "import matplotlib.pyplot as plt\n\n"
+    "fig_sft, ax_sft = plt.subplots(figsize=(10, 6))\n"
+    "if sft_steps:\n"
+    "    ax_sft.plot(sft_steps, sft_loss_vals, '#f59e0b', lw=2, label='SFT loss')\n"
+    "    ax_sft.legend()\n"
+    "else:\n"
+    "    ax_sft.text(0.5, 0.5, 'No SFT loss data', transform=ax_sft.transAxes, ha='center')\n"
+    "ax_sft.set_xlabel('Training Step')\n"
+    "ax_sft.set_ylabel('Loss')\n"
+    "ax_sft.set_title('M&A RL - Loss Curve (SFT, Qwen2.5-7B)')\n"
+    "ax_sft.grid(True, alpha=0.3)\n"
+    "fig_sft.savefig('sft_loss_curve.png', dpi=150, bbox_inches='tight')\n"
+    "plt.show(); print('Saved sft_loss_curve.png')"
+))
+
+# ── Cell 13: Heavy RL reward curve ──
+cells.append(cell(
+    "# Cell 13: reward_curve.png (Phase 3 heavy RL)\n"
     "import matplotlib.pyplot as plt, numpy as np\n\n"
     "fig, ax = plt.subplots(figsize=(10, 6))\n"
     "if reward_steps:\n"
@@ -395,15 +439,15 @@ cells.append(cell(
     "    ax.plot(ss, sv, '#2563eb', lw=2)\n"
     "    ax.set_ylabel('SFT Loss (GRPO rewards not logged)')\n\n"
     "ax.set_xlabel('Training Step')\n"
-    "ax.set_title('M&A RL - Reward Curve (GRPO, Qwen2.5-3B)')\n"
+    "ax.set_title('M&A RL - Reward Curve (GRPO, Qwen2.5-7B)')\n"
     "ax.grid(True, alpha=0.3)\n"
     "fig.savefig('reward_curve.png', dpi=150, bbox_inches='tight')\n"
     "plt.show(); print('Saved reward_curve.png')"
 ))
 
-# ── Cell 12: Loss curve ──
+# ── Cell 14: Heavy RL + SFT combined loss curve ──
 cells.append(cell(
-    "# Cell 12: loss_curve.png (SFT + GRPO combined)\n"
+    "# Cell 14: loss_curve.png (SFT + GRPO combined)\n"
     "import matplotlib.pyplot as plt\n\n"
     "fig2, ax2 = plt.subplots(figsize=(10, 6))\n"
     "ss = [x.get('step', i) for i, x in enumerate(sft_log) if 'loss' in x]\n"
@@ -418,16 +462,16 @@ cells.append(cell(
     "    ax2.text(0.5, 0.5, 'No loss data', transform=ax2.transAxes, ha='center')\n\n"
     "ax2.set_xlabel('Training Step')\n"
     "ax2.set_ylabel('Loss')\n"
-    "ax2.set_title('M&A RL - Loss Curve (SFT + GRPO, Qwen2.5-3B)')\n"
+    "ax2.set_title('M&A RL - Loss Curve (SFT + GRPO, Qwen2.5-7B)')\n"
     "ax2.grid(True, alpha=0.3)\n"
     "if ss or loss_steps: ax2.legend()\n"
     "fig2.savefig('loss_curve.png', dpi=150, bbox_inches='tight')\n"
     "plt.show(); print('Saved loss_curve.png')"
 ))
 
-# ── Cell 13: Sample outputs ──
+# ── Cell 15: Sample outputs ──
 cells.append(cell(
-    "# Cell 13: Post-training output samples (hacking check)\n"
+    "# Cell 15: Post-training output samples (hacking check)\n"
     "FastLanguageModel.for_inference(model)\n"
     "print('=== Post-Training Samples ===')\n"
     "for i in range(5):\n"
@@ -443,34 +487,34 @@ cells.append(cell(
     "    print(f'[{i+1}] reward={obs2.reward:.3f} | {text[:180]}')"
 ))
 
-# ── Cell 14: Save model ──
+# ── Cell 16: Save model ──
 cells.append(cell(
-    "# Cell 14: Save — MUST use save_pretrained_merged (not save_pretrained)\n"
+    "# Cell 16: Save — MUST use save_pretrained_merged (not save_pretrained)\n"
     "FastLanguageModel.for_training(model)\n"
     "model.save_pretrained_merged('final_model', tokenizer, save_method='merged_16bit')\n"
     "print('Saved: final_model/')"
 ))
 
-# ── Cell 15: Commit ──
+# ── Cell 17: Commit ──
 cells.append(cell(
-    "# Cell 15: Commit training curves to repo\n"
-    "!git add reward_curve.png loss_curve.png\n"
+    "# Cell 17: Commit training curves to repo\n"
+    "!git add reward_curve_mini.png sft_loss_curve.png reward_curve.png loss_curve.png\n"
     "!git commit -m 'Add training curves (SFT+GRPO, Qwen2.5-7B, A100)'\n"
     "!git push"
 ))
 
-# ── Cell 16: Cleanup ──
+# ── Cell 18: Cleanup ──
 cells.append(cell(
-    "# Cell 16: Cleanup\n"
+    "# Cell 18: Cleanup\n"
     "server_proc.terminate()\n"
-    "print('Done! Artifacts: reward_curve.png  loss_curve.png  final_model/')"
+    "print('Done! Artifacts: reward_curve_mini.png  sft_loss_curve.png  reward_curve.png  loss_curve.png  final_model/')"
 ))
 
 # ── Write notebook ──
 nb = {
     "nbformat": 4, "nbformat_minor": 0,
     "metadata": {
-        "colab": {"provenance": [], "gpuType": "T4"},
+        "colab": {"provenance": [], "gpuType": "A100"},
         "kernelspec": {"name": "python3", "display_name": "Python 3"},
         "language_info": {"name": "python"},
         "accelerator": "GPU",
