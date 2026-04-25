@@ -12,7 +12,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
@@ -119,14 +118,9 @@ async def root():
 
 
 @app.get("/web")
-async def web_entry(logs: str | None = None):
-    """Compatibility route used by HF/OpenEnv web probes.
-
-    Some deploy surfaces probe /web (and /web?logs=container). Redirecting
-    avoids noisy 404 logs while keeping the API contract unchanged.
-    """
-    _ = logs  # Probe parameter is accepted but not used.
-    return RedirectResponse(url="/docs", status_code=307)
+async def web_ui(logs: str | None = None):
+    """Web probe endpoint for HuggingFace Spaces."""
+    return {"status": "running", "docs": "/docs"}
 
 
 def main():
