@@ -1,5 +1,5 @@
 # ── Base image ──
-FROM pytorch/pytorch:2.2.1-cuda12.1-cudnn8-devel
+FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-devel
 
 # Install git for unsloth
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
