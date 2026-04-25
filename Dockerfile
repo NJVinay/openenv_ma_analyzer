@@ -17,8 +17,6 @@ USER appuser
 # ── Expose HF Spaces port ──
 EXPOSE 7860
 
-# (Health check temporarily removed for Jupyter Lab)
-
 # ── Run ──
 RUN pip install jupyterlab
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=7860", "--no-browser", "--allow-root", "--NotebookApp.token='hackathon'"]
+CMD ["python", "-m", "jupyter", "lab", "--ip=0.0.0.0", "--port=7860", "--no-browser", "--allow-root", "--NotebookApp.token='hackathon'"]
