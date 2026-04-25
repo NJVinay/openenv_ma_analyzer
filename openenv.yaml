@@ -1,0 +1,15 @@
+spec_version: 1
+name: ma-due-diligence
+version: 1.0.0
+author: "vinay"
+
+endpoints:
+  reset: { path: /reset, method: POST }
+  step: { path: /step, method: POST }
+  state: { path: /state, method: GET }
+  health: { path: /health, method: GET }
+
+tasks:
+  - { name: red-flag-scan, difficulty: easy, max_steps: 1, timeout_s: 30 }
+  - { name: risk-quantification, difficulty: medium, max_steps: 4, timeout_s: 60 }
+  - { name: clause-rewrite, difficulty: hard, max_steps: 3, timeout_s: 90 }
