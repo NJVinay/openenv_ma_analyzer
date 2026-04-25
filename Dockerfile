@@ -18,5 +18,6 @@ USER appuser
 EXPOSE 7860
 
 # ── Run ──
+ENV PATH="/home/appuser/.local/bin:${PATH}"
 RUN pip install jupyterlab
-CMD ["python", "-m", "jupyter", "lab", "--ip=0.0.0.0", "--port=7860", "--no-browser", "--allow-root", "--NotebookApp.token='hackathon'"]
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=7860", "--no-browser", "--allow-root", "--NotebookApp.token='hackathon'"]
