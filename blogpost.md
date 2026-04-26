@@ -1,60 +1,44 @@
-# From Clause Spotting to Negotiation: Training an M&A RL Environment
+# Training an M&A Agent: From Simple Classifiers to Legal Reasoning
 
-**The Problem Worth Solving**
-In the high-stakes world of Mergers & Acquisitions (M&A), junior analysts are often the first line of defense during a 72-hour due diligence window. They must review hundreds of pages of NDAs, Share Purchase Agreements (SPAs), and Letters of Intent (LOIs). A single missed "uncapped liability" or a "silent environmental carve-out" can lead to multi-million dollar exposures.
+M&A due diligence is a grind. You're usually staring at a 72-hour window to find "red flags" in hundreds of pages of NDAs, LOIs, and Share Purchase Agreements. Missing a single uncapped liability clause or a weird environmental carve-out isn't just a mistake—it's a multi-million dollar risk.
 
-This project frames this professional workflow as a reinforcement learning problem using **OpenEnv**. Our goal was to train an agent that moves beyond simple pattern recognition to perform deep, long-horizon legal reasoning.
+I wanted to see if I could train an AI to handle this professional ladder using reinforcement learning. Not just a model that fills out JSON, but one that actually stops to "think" about jurisdiction risks and legal precedents before it commits to an answer.
 
----
+### Building the environment
+I built this on top of OpenEnv, following a three-tier curriculum that mirrors how a junior analyst actually learns on the job:
+* **Analyst Tier:** Spotting high-risk clause types in simple NDAs.
+* **Associate Tier:** Quantifying deal exposure across multi-step SPA documents.
+* **VP Tier:** Redrafting problematic language with a clear legal justification.
 
-## 🏗️ The Environment: A Professional Ladder
-The environment implements a 3-tier curriculum that mirrors the actual career progression in an M&A advisory firm:
+I used a Curriculum Controller to gate these tiers. The model can't just jump to the hard stuff; it has to master the fundamentals first based on a rolling reward average.
 
-1. **Analyst Tier (Easy):** Identifying high-risk clause types in NDAs.
-2. **Associate Tier (Medium):** Quantifying exposure across complex SPAs.
-3. **VP Tier (Hard):** Redrafting problematic "Reps & Warranties" with legal justification.
+### Scaling up: The 3B to 7B journey
+I ran two main experiments to see how much hardware and model scale actually mattered for this kind of work.
 
-A **Curriculum Controller** gates access to higher tiers based on rolling reward averages, ensuring the model masters the fundamentals before attempting senior-level negotiation.
+**The Baseline: Qwen2.5-3B on a T4**
+I started with a 3B model on a standard T4 GPU. It was fast and handled the basic formatting well, but it hit a ceiling on the more complex reasoning tasks. Because of the 16GB VRAM limit, I had to keep the context window short, which meant the model didn't have room to "think" out loud.
 
----
+![3B Reward](training_artifacts/qwen2.5_3b/reward_curve.png)
+![3B Loss](training_artifacts/qwen2.5_3b/loss_curve.png)
 
-## 📈 Performance Evolution: 3B vs 7B
-We executed two distinct training runs to compare how model scale and hardware availability impact legal reasoning performance.
+**The Heavy Run: Qwen2.5-7B on an A100**
+Switching to an A100 was the turning point. It gave me the memory overhead to run the 7B model with a 2048-token context. This let me implement a "Long-Horizon" reward: I gave the model a +0.2 bonus if it wrote a detailed deliberation block (<think>...</think>) before outputting its final decision. 
 
-### 1. The Baseline: Qwen2.5-3B (T4 GPU / Colab)
-Running on a standard T4, we tuned the 3B model for high-speed formatting.
-*   **Behavior:** The model excelled at JSON structure and quick "Red Flag" spotting.
-*   **Limitation:** It struggled with long-horizon reasoning, often plateauing early on the "Hard" tier due to memory constraints (`max_completion_length=256`).
+The results were much more stable. The 7B model didn't just guess; it explored counter-arguments and jurisdiction risks first.
 
-| 3B Reward Curve | 3B Loss Curve |
-| :---: | :---: |
-| ![3B Reward](training_artifacts/qwen2.5_3b/reward_curve.png) | ![3B Loss](training_artifacts/qwen2.5_3b/loss_curve.png) |
+![7B Reward](training_artifacts/qwen2.5_7b/reward_curve.png)
+![7B Loss](training_artifacts/qwen2.5_7b/loss_curve.png)
 
-### 2. The Powerhouse: Qwen2.5-7B (A100 GPU / HF Space)
-By scaling to an A100 80GB, we unlocked **Long-Horizon Reasoning**.
-*   **Hardware Leap:** The A100 allowed us to expand the context to `2048` tokens and use a `num_generations=8` GRPO setting for superior sample diversity.
-*   **Reasoning Bonus:** We introduced a custom reward heuristic that granted a **+0.2 bonus** for detailed `<think>...</think>` blocks exceeding 500 characters.
-*   **Result:** The 7B model demonstrated significantly more stable policy improvement and deeper "thought" before outputting final legal decisions.
+### The full training pipeline
+I didn't just jump into RL. I followed a full pipeline to make sure the model stayed on track:
+1. **SFT Warm-up:** I started with Supervised Fine-Tuning to stabilize the JSON formatting.
+2. **Mini-RL:** A short GRPO run to make sure the reward wiring and the environment were actually talking to each other.
+3. **Full GRPO:** The deep dive on the 7B model where the real reasoning improvement happened.
 
-| 7B Reward Curve | 7B Loss Curve |
-| :---: | :---: |
-| ![7B Reward](training_artifacts/qwen2.5_7b/reward_curve.png) | ![7B Loss](training_artifacts/qwen2.5_7b/loss_curve.png) |
+![SFT Loss](training_artifacts/qwen2.5_7b/sft_loss_curve.png)
+![Mini RL Reward](training_artifacts/qwen2.5_7b/reward_curve_mini.png)
 
----
+### Why I built this
+Most RL benchmarks are about games or coding. I think legal and financial reasoning is an underexplored frontier for these models. By using deterministic rewards (no LLM-grading) and a hierarchical curriculum, I wanted to show that you can train an agent to handle high-stakes business logic in a reproducible way.
 
-## 🧠 Technical Deep Dive: Long-Horizon Architecture
-To achieve these results, we implemented several architectural upgrades:
-
-*   **In-Memory Evaluator:** To bypass HTTP rate limits during high-throughput A100 training, our reward function directly instantiated the environment in-process, eliminating network overhead.
-*   **Reasoning Incentives:** The model was rewarded not just for the correct answer, but for the *quality of its deliberation*—exploring legal precedents and jurisdiction risks before committing to a JSON output.
-*   **GRPO Optimization:** We leveraged the A100 to run two epochs of deeper policy refinement with a lower learning rate (`5e-6`) to prevent catastrophic forgetting of legal nuances.
-
-> [!NOTE]
-> For a full technical breakdown of the hardware settings and reward shaping, see our [Long-Horizon Architecture Documentation](https://huggingface.co/spaces/njvinay/openenv_ma_analyzer/blob/main/long_horizon_architecture.md#ma-openenv-long-horizon-reasoning-rl-architecture).
-
----
-
-## 🏁 Conclusion
-Training legal agents isn't just about "getting the right JSON." It's about building models that can defend their reasoning and navigate complex trade-offs. By combining the **OpenEnv** framework with modern **GRPO** techniques and A100 scaling, we’ve shown that LLMs can be trained to climb the professional ladder from Junior Analyst to M&A Lead.
-
-**The Qwen2.5-7B model has successfully surpassed all curriculum thresholds and is ready for deployment in the M&A Due Diligence ecosystem.** ⚖️🚀🏆
+For the technical details on the reward shaping and the in-memory training path I used to bypass rate limits, you can check out my architecture doc: https://huggingface.co/spaces/njvinay/openenv_ma_analyzer/blob/main/long_horizon_architecture.md
