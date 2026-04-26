@@ -9,6 +9,8 @@ app_port: 7860
 
 # M&A Due Diligence RL Environment
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NJVinay/openenv_ma_analyzer/blob/master/training/grpo_training.ipynb)
+
 An OpenEnv-compliant reinforcement learning environment that trains AI agents to perform **mergers & acquisitions due diligence** — the high-stakes process of reviewing legal documents for risk clauses, quantifying deal exposure, and rewriting unfavourable terms.
 
 ## 🎯 Problem
@@ -86,7 +88,7 @@ The 3-tier curriculum mirrors the actual professional progression in M&A advisor
 ## 🔗 Links
 
 - **HF Space**: [https://huggingface.co/spaces/njvinay/contract-clause-analyzer](https://huggingface.co/spaces/njvinay/contract-clause-analyzer)
-- **Training Notebook**: [`training/grpo_training.ipynb`](training/grpo_training.ipynb)
+- **Training Notebook**: [`training/grpo_training.ipynb`](training/grpo_training.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NJVinay/openenv_ma_analyzer/blob/master/training/grpo_training.ipynb)
 - **Reward Curve**: [`training_artifacts/qwen2.5_7b/reward_curve.png`](training_artifacts/qwen2.5_7b/reward_curve.png)
 - **Loss Curve**: [`training_artifacts/qwen2.5_7b/loss_curve.png`](training_artifacts/qwen2.5_7b/loss_curve.png)
 - **Blog Post**: [`blogpost.md`](blogpost.md)
