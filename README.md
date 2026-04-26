@@ -1,3 +1,13 @@
+---
+title: M&A Due Diligence RL Environment
+emoji: ⚖️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # M&A Due Diligence RL Environment
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NJVinay/openenv_ma_analyzer/blob/master/training/grpo_training.ipynb)
