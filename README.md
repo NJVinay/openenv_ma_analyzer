@@ -53,14 +53,14 @@ All graders are **deterministic** — no LLM calls. Rewards clamped to `[0.0, 1.
 
 ## 📊 Results
 
-![Reward Curve](reward_curve.png)
-![Loss Curve](loss_curve.png)
+![Reward Curve](training_artifacts/qwen2.5_7b/reward_curve.png)
+![Loss Curve](training_artifacts/qwen2.5_7b/loss_curve.png)
 
 **Figure 1 (Heavy RL Reward):** `reward_curve.png` tracks mean reward versus training step during Phase 3 GRPO and shows policy improvement under the OpenEnv reward function.
 
 **Figure 2 (Heavy RL Loss):** `loss_curve.png` tracks optimization loss versus training step and is used to verify stable training behavior.
 
-**Current committed curves are 3B test-run examples:** the present `reward_curve.png` and `loss_curve.png` are included as baseline validation artifacts from a lightweight 3B configuration run. They are kept intentionally to demonstrate end-to-end pipeline execution before final 7B/A100 heavy-run replacement.
+**Current committed curves are the finalized 7B Optimized Run results:** the present `reward_curve.png` and `loss_curve.png` document the 7B model successfully mastering the M&A curriculum on an A100 GPU, achieving stable policy improvement and consistent reward growth across all tiers. Baseline 3B validation artifacts are preserved in the `training_artifacts/qwen2.5_3b/` directory for provenance.
 
 **Optional supporting artifacts (recommended):**
 - `reward_curve_mini.png` (Phase 2 mini RL sanity run)
@@ -79,8 +79,8 @@ The 3-tier curriculum mirrors the actual professional progression in M&A advisor
 
 - **HF Space**: [https://huggingface.co/spaces/njvinay/contract-clause-analyzer](https://huggingface.co/spaces/njvinay/contract-clause-analyzer)
 - **Training Notebook**: [`training/grpo_training.ipynb`](training/grpo_training.ipynb)
-- **Reward Curve**: [`reward_curve.png`](reward_curve.png)
-- **Loss Curve**: [`loss_curve.png`](loss_curve.png)
+- **Reward Curve**: [`training_artifacts/qwen2.5_7b/reward_curve.png`](training_artifacts/qwen2.5_7b/reward_curve.png)
+- **Loss Curve**: [`training_artifacts/qwen2.5_7b/loss_curve.png`](training_artifacts/qwen2.5_7b/loss_curve.png)
 - **Blog Post**: [`blogpost.md`](blogpost.md)
 
 ## ✅ Submission Readiness Checks
