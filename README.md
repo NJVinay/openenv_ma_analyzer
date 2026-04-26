@@ -11,106 +11,76 @@ app_port: 7860
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NJVinay/openenv_ma_analyzer/blob/master/training/grpo_training.ipynb)
 
-An OpenEnv-compliant reinforcement learning environment that trains AI agents to perform **mergers & acquisitions due diligence** — the high-stakes process of reviewing legal documents for risk clauses, quantifying deal exposure, and rewriting unfavourable terms.
+An OpenEnv-compliant reinforcement learning environment designed to train agents for high-stakes **Mergers & Acquisitions (M&A) due diligence**. The environment progresses from pattern-matching risk identification to complex multi-step clause redrafting.
 
-## 🎯 Problem
+## 🏛️ Project Architecture
 
-In real M&A transactions, a 72-hour due diligence window is standard. Junior analysts must review hundreds of pages of NDAs, Letters of Intent, Share Purchase Agreements, and Representations & Warranties. A missed clause — an uncapped liability provision, an overbroad non-compete, or a silent environmental carve-out — can cost millions.
+### 🛠️ Tech Stack
+- **Base Model:** Qwen2.5-7B-Instruct (Optimized via **Unsloth** for 2x faster training and 70% less VRAM).
+- **RL Algorithm:** **GRPO** (Group Relative Policy Optimization) — implemented for stable policy refinement without a critic model.
+- **Backend:** **FastAPI** with OpenEnv-compliant MCP-ready endpoints.
+- **Hardware:** Trained on **NVIDIA A100 80GB** to support long-horizon reasoning (`max_completion_length=2048`).
 
-This environment teaches an LLM agent to systematically identify, quantify, and remediate legal risk in M&A documents, progressing from junior analyst skills to senior VP-level clause negotiation.
+### 📐 Architectural Decisions: Long-Horizon Reasoning
+Unlike standard RL environments that reward immediate output, this project implements a **Long-Horizon Reasoning** architecture:
+- **Chain-of-Thought Enforcement:** The model is system-prompted to produce a `<think>` block before the final JSON.
+- **Reward Shaping:** A flat **+0.2 bonus** is awarded for detailed deliberation (>500 chars), incentivizing the model to explore legal precedents and jurisdiction risks rather than just "filling the form."
+- **In-Memory Training:** For high-throughput training on the A100, the reward function bypasses the HTTP rate-limiter by instantiating the environment in-process.
 
-## 🏗️ Environment
+---
 
-The environment implements a **3-tier curriculum** that mirrors the M&A professional hierarchy:
+## 🏗️ Environment Structure & Curriculum
 
-| Task | Tier | Description | Max Steps | M&A Role |
-|------|------|-------------|-----------|----------|
-| **Red Flag Scan** | Easy | Identify the highest-risk clause type in an NDA/LOI | 1 | Analyst |
-| **Risk Quantification** | Medium | Assess deal risk level and map exposure clauses in an SPA | 4 | Associate |
-| **Clause Rewrite** | Hard | Rewrite a problematic Reps & Warranties clause with justification | 3 | VP |
+The environment uses a **3-tier hierarchical curriculum** to mirror the professional ladder of an M&A advisory firm:
 
-### Curriculum Progression
+| Tier | Role | Goal | Reward Logic |
+| :--- | :--- | :--- | :--- |
+| **Easy** | Analyst | Red Flag Scan | Exact match on high-risk clause types. |
+| **Medium** | Associate | Risk Quantification | Jaccard overlap on exposure clauses + risk score accuracy. |
+| **Hard** | VP | Clause Rewrite | SequenceMatcher similarity to "Safe" language + justification keywords. |
 
-- **CurriculumController** manages tier unlocking based on rolling reward averages
-- Easy → Medium: Last 10 easy rewards avg > 0.5
-- Medium → Hard: Last 10 medium rewards avg > 0.4
+### ⚖️ Deterministic Grading
+All rewards are **deterministic** and calculated without LLM-in-the-loop scoring. This ensures 100% reproducibility and prevents reward hacking.
 
-### Dataset
+---
 
-12 realistic M&A deal documents with authentic legal language:
+## 📊 Results & Evidence
 
-- 3 NDAs, 3 LOIs (Easy tier)
-- 3 SPAs (Medium tier)
-- 3 Reps & Warranties (Hard tier)
+We compared a **3B Parameter Baseline** (T4/Colab) against our **7B Optimized Model** (A100/HF). The results show that while 3B models handle Tier 1 tasks well, the 7B model scales significantly better on Tier 3 tasks requiring long-form reasoning.
 
-### Security Layer
+### Qwen2.5-7B Optimized Results (Primary)
+- **Reward Curve:** [View 7B Curve](training_artifacts/qwen2.5_7b/reward_curve.png)
+- **Loss Curve:** [View 7B Loss](training_artifacts/qwen2.5_7b/loss_curve.png)
 
-- Rate limiting via SlowAPI (30 resets/min, 60 steps/min)
-- CSP / HSTS / X-Frame-Options security headers
-- Prompt injection detection with regex patterns
-- Honeypot bot detection endpoint (`/admin/config`)
-- Non-root container execution (`appuser`)
+### Qwen2.5-3B Baseline Results (Provenance)
+- **Reward Curve:** [View 3B Curve](training_artifacts/qwen2.5_3b/reward_curve.png)
+- **Loss Curve:** [View 3B Loss](training_artifacts/qwen2.5_3b/loss_curve.png)
 
-### Grading
+---
 
-All graders are **deterministic** — no LLM calls. Rewards clamped to `[0.0, 1.0]`:
+## 🛡️ Security & Performance
+- **Injection Detection:** Regex-based filtering for adversarial prompts.
+- **Rate Limiting:** SlowAPI protection (30 resets/min, 60 steps/min).
+- **Safety Headers:** CSP, HSTS, and X-Frame-Options configured for secure embedding in the HuggingFace UI.
+- **Non-Root Execution:** Dockerfile configured to run as `appuser` for HF Spaces compliance.
 
-- **Easy**: Exact clause-type match (1.0) or related category (0.3)
-- **Medium**: Risk accuracy (0.4) + Jaccard clause overlap (0.4) + format compliance (0.2) − anti-loop penalty
-- **Hard**: Issue identification (0.25) + rewrite quality via SequenceMatcher (0.50) + justification keywords (0.25)
-
-## 📊 Results
-
-![Reward Curve](training_artifacts/qwen2.5_7b/reward_curve.png)
-![Loss Curve](training_artifacts/qwen2.5_7b/loss_curve.png)
-
-**Figure 1 (Heavy RL Reward):** `reward_curve.png` tracks mean reward versus training step during Phase 3 GRPO and shows policy improvement under the OpenEnv reward function.
-
-**Figure 2 (Heavy RL Loss):** `loss_curve.png` tracks optimization loss versus training step and is used to verify stable training behavior.
-
-**Current committed curves are the finalized 7B Optimized Run results:** the present `reward_curve.png` and `loss_curve.png` document the 7B model successfully mastering the M&A curriculum on an A100 GPU, achieving stable policy improvement and consistent reward growth across all tiers. Baseline 3B validation artifacts are preserved in the `training_artifacts/qwen2.5_3b/` directory for provenance.
-
-**Optional supporting artifacts (recommended):**
-
-- `reward_curve_mini.png` (Phase 2 mini RL sanity run)
-- `sft_loss_curve.png` (Phase 1 SFT warm-up)
-
-## 💡 Why It Matters
-
-This is the **only legal/financial domain environment** in the OpenEnv ecosystem. While other environments test code generation or game-playing, this environment addresses a real $4.7 trillion annual market where AI-assisted due diligence is already transforming practice.
-
-The 3-tier curriculum mirrors the actual professional progression in M&A advisory:
-
-- **Analyst** → flag obvious risks (pattern recognition)
-- **Associate** → quantify exposure across multiple clauses (multi-step reasoning)
-- **VP** → rewrite clauses to protect the acquirer (generative legal drafting)
+---
 
 ## 🔗 Links
+- **Live Environment**: [HuggingFace Space](https://huggingface.co/spaces/njvinay/openenv_ma_analyzer)
+- **Trained Model**: [NJVinay/Qwen2.5-7B-MA-Diligence](https://huggingface.co/NJVinay/Qwen2.5-7B-MA-Diligence)
+- **Deep Dive Blog**: [blogpost.md](blogpost.md)
+- **Architecture Spec**: [long_horizon_architecture.md](long_horizon_architecture.md)
 
-- **HF Space**: [https://huggingface.co/spaces/njvinay/contract-clause-analyzer](https://huggingface.co/spaces/njvinay/contract-clause-analyzer)
-- **Training Notebook**: [`training/grpo_training.ipynb`](training/grpo_training.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NJVinay/openenv_ma_analyzer/blob/master/training/grpo_training.ipynb)
-- **Reward Curve**: [`training_artifacts/qwen2.5_7b/reward_curve.png`](training_artifacts/qwen2.5_7b/reward_curve.png)
-- **Loss Curve**: [`training_artifacts/qwen2.5_7b/loss_curve.png`](training_artifacts/qwen2.5_7b/loss_curve.png)
-- **Blog Post**: [`blogpost.md`](blogpost.md)
-
-## ✅ Submission Readiness Checks
-
-- [ ] Space is **public**, reachable in logged-out incognito mode
-- [ ] `GET /health` returns `{"status": "ok"}`
-- [ ] `openenv.yaml` exists at repo root
-- [ ] `reward_curve.png` and `loss_curve.png` are committed at repo root
-- [ ] README answers Problem / Environment / Results / Why it matters
-- [ ] `blogpost.md` is present and linked
+---
 
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
+# Clone and Install
+git clone https://github.com/NJVinay/openenv_ma_analyzer
 pip install -r requirements.txt
 
-# Run the server
+# Run Environment Server
 uvicorn server.app:app --host 0.0.0.0 --port 7860
-
-# Run smoke tests
-python smoke_test.py
 ```
