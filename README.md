@@ -50,7 +50,6 @@ The repository includes curves for both a 3B parameter baseline (T4) and the fin
 
 ## Links
 * **Live Space:** [https://huggingface.co/spaces/njvinay/openenv_ma_analyzer](https://huggingface.co/spaces/njvinay/openenv_ma_analyzer)
-* **Model Weights:** [NJVinay/Qwen2.5-7B-MA-Diligence](https://huggingface.co/NJVinay/Qwen2.5-7B-MA-Diligence)
 * **Detailed Blog:** [blogpost.md](blogpost.md)
 * **Architecture Note:** [long_horizon_architecture.md](long_horizon_architecture.md)
 
